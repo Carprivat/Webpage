@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kalorieberegner — kalorier, tid og watt</title>
+<style>
+  :root{
+    --case:#232a1f;
+    --case-hi:#333c2c;
+    --screen:#d9f0c2;
+    --screen-edge:#b6cf98;
+    --ink:#1b2712;
+    --dim:#758a5c;
+    --amber:#c96a13;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--case);
+    background-image:repeating-linear-gradient(180deg,rgba(255,255,255,.025) 0 1px,transparent 1px 4px);
+    color:var(--screen);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    min-height:100vh;
+    padding:28px 16px 64px;
+    display:flex;justify-content:center;
+  }
+  .device{width:100%;max-width:620px}
+
+  header{margin-bottom:20px}
+  .eyebrow{
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:.68rem;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--dim);margin:0 0 6px;
+  }
+  h1{font-size:1.5rem;font-weight:700;letter-spacing:-.02em;margin:0;color:#eaf6dc}
+
+  /* LCD */
+  .lcd{
+    background:var(--screen);color:var(--ink);
+    border:2px solid var(--screen-edge);
+    border-radius:var(--radius);
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.6), 0 6px 0 #171d13;
+    padding:18px 18px 16px;
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    line-height:1.5;
+  }
+  .lcd .formula{font-size:.95rem;word-break:break-word}
+  .lcd .formula .v{font-weight:700;background:rgba(27,39,18,.09);padding:0 3px;border-radius:3px}
+  .lcd .formula .v.solved{background:var(--amber);color:#fff}
+  .lcd .caption{
+    margin-top:10px;font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);
+  }
+  .lcd .warn{color:#9c2c14;font-size:.78rem;margin-top:10px;letter-spacing:0;text-transform:none}
+
+  /* rows */
+  .rows{margin-top:22px;display:flex;flex-direction:column;gap:12px}
+  .row{
+    background:var(--case-hi);border:1px solid #414c38;border-radius:var(--radius);
+    padding:14px 16px;transition:border-color .15s,background .15s;
+  }
+  .row.solved{border-color:var(--amber);background:#3a3423}
+  .row .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  label{font-size:.9rem;font-weight:500;color:#e3f0d4}
+  .unit{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:.7rem;color:var(--dim);letter-spacing:.1em;text-transform:uppercase}
+  input[type=number]{
+    width:100%;margin-top:8px;
+    background:#1b2117;border:1px solid #4a5540;border-radius:8px;
+    color:var(--screen);font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:1.25rem;
+    padding:10px 12px;-moz-appearance:textfield;
+  }
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  input:focus-visible,button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+  .row.solved input{background:#241f13;border-color:var(--amber);color:#ffd9a0;font-weight:700}
+  input[readonly]{cursor:default}
+  .sub{
+    margin-top:8px;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:.82rem;color:#a8bd8e;min-height:1.1em;
+  }
+  .pick{
+    background:none;border:1px solid #57633f;color:var(--dim);
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
+    padding:5px 9px;border-radius:99px;cursor:pointer;white-space:nowrap;
+  }
+  .pick:hover{color:#e3f0d4;border-color:#8ea472}
+  .row.solved .pick{background:var(--amber);border-color:var(--amber);color:#fff;cursor:default}
+
+  .reset{
+    margin-top:20px;background:none;border:1px solid #4a5540;color:var(--dim);
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;
+    padding:10px 16px;border-radius:99px;cursor:pointer;
+  }
+  .reset:hover{color:#e3f0d4;border-color:#8ea472}
+  footer{margin-top:26px;font-size:.78rem;color:var(--dim);line-height:1.6}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main class="device">
+  <header>
+    <p class="eyebrow">Kalorier ÷ sekunder = 0,228168 + 0,00154470 · watt</p>
+    <h1>Udfyld to felter — det tredje beregnes</h1>
+  </header>
+
+  <div class="lcd">
+    <div class="formula" id="formula"></div>
+    <div class="caption" id="caption">Vælg hvilket felt der skal beregnes</div>
+    <div class="warn" id="warn" hidden></div>
+  </div>
+
+  <div class="rows">
+    <div class="row" id="row-kalorier">
+      <div class="top">
+        <label for="kalorier">Kalorier</label>
+        <button class="pick" data-target="kalorier" type="button">Beregn</button>
+      </div>
+      <input type="number" id="kalorier" step="any" min="0" inputmode="decimal" placeholder="0">
+      <div class="sub unit">kcal i alt</div>
+    </div>
+
+    <div class="row" id="row-sekunder">
+      <div class="top">
+        <label for="sekunder">Sekunder</label>
+        <button class="pick" data-target="sekunder" type="button">Beregn</button>
+      </div>
+      <input type="number" id="sekunder" step="any" min="0" inputmode="decimal" placeholder="0">
+      <div class="sub" id="tid">—</div>
+    </div>
+
+    <div class="row" id="row-watt">
+      <div class="top">
+        <label for="watt">Watt</label>
+        <button class="pick" data-target="watt" type="button">Beregn</button>
+      </div>
+      <input type="number" id="watt" step="any" inputmode="decimal" placeholder="0">
+      <div class="sub unit">gennemsnitlig effekt</div>
+    </div>
+  </div>
+
+  <button class="reset" id="reset" type="button">Ryd alle felter</button>
+
+  <footer>
+    Kalorieforbruget er summen af et hvilebidrag på 0,228168 kcal pr. sekund og
+    0,00154470 kcal pr. sekund pr. watt.
+  </footer>
+</main>
+
+<script>
+const A = 0.228168, B = 0.00154470;
+const ids = ["kalorier","sekunder","watt"];
+const el = {};
+ids.forEach(i => el[i] = document.getElementById(i));
+const formula = document.getElementById("formula");
+const caption = document.getElementById("caption");
+const warn = document.getElementById("warn");
+const tid = document.getElementById("tid");
+let solveFor = "kalorier";
+
+const num = s => s.toLocaleString("da-DK", {maximumFractionDigits:4});
+
+function setTarget(t){
+  solveFor = t;
+  ids.forEach(i => {
+    const row = document.getElementById("row-"+i);
+    const on = i === t;
+    row.classList.toggle("solved", on);
+    el[i].readOnly = on;
+    row.querySelector(".pick").textContent = on ? "Beregnes" : "Beregn";
+    if(on) el[i].value = "";
+  });
+  compute();
+}
+
+function compute(){
+  const v = {};
+  ids.forEach(i => {
+    const raw = el[i].value.trim().replace(",",".");
+    v[i] = raw === "" ? null : parseFloat(raw);
+    if(Number.isNaN(v[i])) v[i] = null;
+  });
+
+  warn.hidden = true;
+  const needed = ids.filter(i => i !== solveFor);
+  const missing = needed.filter(i => v[i] === null);
+
+  if(missing.length){
+    el[solveFor].value = "";
+    caption.textContent = "Indtast " + missing.map(m => m).join(" og ") + " for at beregne " + solveFor;
+  } else {
+    let r = null, msg = null;
+    if(solveFor === "kalorier"){
+      if(v.sekunder < 0) msg = "Sekunder kan ikke være negativ.";
+      else r = v.sekunder * (A + B * v.watt);
+    } else if(solveFor === "sekunder"){
+      const rate = A + B * v.watt;
+      if(rate <= 0) msg = "Ved " + num(v.watt) + " watt bliver forbruget pr. sekund nul eller negativt — tiden kan ikke beregnes.";
+      else r = v.kalorier / rate;
+    } else {
+      if(!(v.sekunder > 0)) msg = "Sekunder skal være større end 0 for at beregne watt.";
+      else r = ((v.kalorier / v.sekunder) - A) / B;
+    }
+    if(msg){
+      el[solveFor].value = "";
+      warn.textContent = msg; warn.hidden = false;
+      caption.textContent = "Kan ikke beregne " + solveFor;
+    } else {
+      el[solveFor].value = Math.round(r * 10000) / 10000;
+      v[solveFor] = r;
+      caption.textContent = "Beregnet: " + solveFor;
+    }
+  }
+
+  // tid under sekunder
+  const s = el.sekunder.value.trim().replace(",",".");
+  const sv = s === "" ? null : parseFloat(s);
+  if(sv === null || Number.isNaN(sv) || sv < 0){
+    tid.textContent = "—";
+  } else {
+    const total = Math.round(sv);
+    const h = Math.floor(total/3600), m = Math.floor((total%3600)/60), sec = total%60;
+    tid.textContent = "= " + (h ? h + " t " : "") + m + " min " + sec + " sek";
+  }
+
+  // LCD
+  const show = k => {
+    const raw = el[k].value.trim().replace(",",".");
+    const n = raw === "" ? null : parseFloat(raw);
+    const txt = (n === null || Number.isNaN(n)) ? (k === "kalorier" ? "kalorier" : k) : num(n);
+    return '<span class="v' + (k === solveFor ? " solved" : "") + '">' + txt + "</span>";
+  };
+  formula.innerHTML = show("kalorier") + " ÷ " + show("sekunder") +
+    " = 0,228168 + 0,00154470 · " + show("watt");
+}
+
+ids.forEach(i => el[i].addEventListener("input", compute));
+document.querySelectorAll(".pick").forEach(b =>
+  b.addEventListener("click", () => setTarget(b.dataset.target)));
+document.getElementById("reset").addEventListener("click", () => {
+  ids.forEach(i => el[i].value = "");
+  compute();
+});
+
+setTarget("kalorier");
+</script>
+</body>
+</html>
