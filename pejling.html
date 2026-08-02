@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pejling — Bottmingen &amp; Slangerup</title>
+<style>
+  :root{
+    --bg:#060910;
+    --panel:#0c1220;
+    --panel-line:#1c2740;
+    --ink:#eef2fa;
+    --muted:#7d879e;
+    --faint:#3a4considerd;
+    --grid:#26314e;
+    --bott:#e8a24a;   /* Bottmingen — alpint aftenlys */
+    --slan:#56b8e8;   /* Slangerup — nordisk himmel  */
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 800px at 50% -10%, #0e1730 0%, transparent 60%),
+      radial-gradient(900px 700px at 80% 110%, #0a1526 0%, transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    display:flex;flex-direction:column;align-items:center;
+    padding:22px 16px 40px;
+    overflow-x:hidden;
+  }
+  /* faint starfield */
+  .stars{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.55;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:440px;}
+
+  .eyebrow{
+    font-size:12px;letter-spacing:.32em;text-transform:uppercase;
+    color:var(--muted);text-align:center;margin:0 0 4px;
+  }
+  h1{
+    font-family:Georgia,"Times New Roman",serif;
+    font-weight:500;font-size:30px;letter-spacing:.01em;
+    text-align:center;margin:0 0 2px;
+  }
+  .sub{text-align:center;color:var(--muted);font-size:13px;margin:0 0 22px;}
+
+  .activate{
+    display:block;width:100%;border:none;cursor:pointer;
+    background:linear-gradient(180deg,#182votes 0%,#111a2e 100%);
+    background:linear-gradient(180deg,#18233f 0%,#111a2e 100%);
+    color:var(--ink);font-size:16px;font-weight:600;letter-spacing:.02em;
+    padding:16px;border-radius:14px;border:1px solid var(--panel-line);
+    transition:transform .12s ease, border-color .2s ease;
+  }
+  .activate:active{transform:scale(.985);border-color:#2f3e63;}
+  .activate .hint{display:block;font-weight:400;font-size:12px;color:var(--muted);margin-top:4px;letter-spacing:.02em;}
+
+  /* compass */
+  .dial-shell{margin:6px auto 4px;width:100%;max-width:360px;aspect-ratio:1/1;position:relative;}
+  svg.dial{width:100%;height:100%;display:block;}
+  .facing-tag{
+    position:absolute;top:-2px;left:50%;transform:translateX(-50%);
+    font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
+  }
+
+  .mode{
+    text-align:center;font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);margin:2px 0 18px;
+  }
+  .mode b{color:var(--ink);font-weight:600;}
+
+  .cards{display:flex;flex-direction:column;gap:12px;}
+  .card{
+    background:var(--panel);border:1px solid var(--panel-line);
+    border-radius:16px;padding:16px 18px;position:relative;overflow:hidden;
+  }
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);}
+  .card .city{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;}
+  .card .name{font-size:18px;font-weight:600;letter-spacing:.01em;}
+  .card .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);display:inline-block;margin-right:8px;vertical-align:middle;}
+  .card .dist{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;}
+
+  .readout{display:flex;align-items:flex-end;gap:16px;}
+  .bearing{
+    font-family:Georgia,"Times New Roman",serif;
+    font-size:40px;line-height:1;font-variant-numeric:tabular-nums;
+    color:var(--accent);
+  }
+  .bearing .deg{font-size:22px;color:var(--muted);margin-left:1px;}
+  .compasspt{font-size:13px;color:var(--muted);letter-spacing:.14em;margin-bottom:6px;}
+  .turn{margin-left:auto;text-align:right;}
+  .turn .lbl{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);}
+  .turn .val{font-size:17px;font-weight:600;margin-top:2px;}
+  .turn .val.right{color:var(--accent);}
+  .turn .aligned{color:#6fe0a6;}
+
+  .foot{margin-top:20px;text-align:center;color:var(--muted);font-size:12px;line-height:1.6;}
+  .foot code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#9fb0d0;font-variant-numeric:tabular-nums;}
+  .refresh{
+    margin-top:14px;background:none;border:1px solid var(--panel-line);color:var(--muted);
+    font-size:13px;padding:9px 16px;border-radius:10px;cursor:pointer;
+  }
+  .refresh:active{color:var(--ink);}
+
+  .msg{
+    text-align:center;font-size:14px;line-height:1.55;color:var(--muted);
+    background:var(--panel);border:1px solid var(--panel-line);border-radius:14px;
+    padding:16px;margin-top:14px;
+  }
+  .msg.err{color:#f0a0a0;border-color:#4a2530;}
+  .hidden{display:none;}
+  .calib{font-size:11px;color:var(--faint);}
+</style>
+</head>
+<body>
+<canvas class="stars" id="stars"></canvas>
+
+<div class="wrap">
+  <p class="eyebrow">Pejling · retningsfinder</p>
+  <h1>Bottmingen &amp; Slangerup</h1>
+  <p class="sub">Hvilken vej skal du vende dig for at kigge mod hver by?</p>
+
+  <button class="activate" id="startBtn">
+    Find min position
+    <span class="hint">Tillad placering og kompas, når du bliver spurgt</span>
+  </button>
+
+  <div id="stage" class="hidden">
+    <div class="dial-shell">
+      <span class="facing-tag" id="facingTag">Nord</span>
+      <svg class="dial" id="dial" viewBox="0 0 320 320" aria-hidden="true"></svg>
+    </div>
+    <p class="mode" id="modeLine"></p>
+
+    <div class="cards" id="cards"></div>
+
+    <div class="foot">
+      Din position: <code id="coords">—</code><br>
+      <span id="acc"></span>
+      <span class="calib" id="calib"></span>
+      <br><button class="refresh" id="refreshBtn">Opdatér position</button>
+    </div>
+  </div>
+
+  <div id="message" class="msg hidden"></div>
+</div>
+
+<script>
+"use strict";
+
+/* ---- byerne ---- */
+const TARGETS = [
+  { name:"Bottmingen", lat:47.5372, lon:7.5719, color:"var(--bott)", hex:"#e8a24a" },
+  { name:"Slangerup",  lat:55.8534, lon:12.1856, color:"var(--slan)", hex:"#56b8e8" },
+];
+
+/* ---- geo-matematik ---- */
+const rad = d => d*Math.PI/180;
+const deg = r => r*180/Math.PI;
+
+function bearing(lat1,lon1,lat2,lon2){
+  const φ1=rad(lat1),φ2=rad(lat2),Δλ=rad(lon2-lon1);
+  const y=Math.sin(Δλ)*Math.cos(φ2);
+  const x=Math.cos(φ1)*Math.sin(φ2)-Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+  return (deg(Math.atan2(y,x))+360)%360;
+}
+function distanceKm(lat1,lon1,lat2,lon2){
+  const R=6371, φ1=rad(lat1),φ2=rad(lat2),dφ=rad(lat2-lat1),dλ=rad(lon2-lon1);
+  const a=Math.sin(dφ/2)**2+Math.cos(φ1)*Math.cos(φ2)*Math.sin(dλ/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+const DIRS16=["N","NNØ","NØ","ØNØ","Ø","ØSØ","SØ","SSØ","S","SSV","SV","VSV","V","VNV","NV","NNV"];
+const compassPoint = b => DIRS16[Math.round(b/22.5)%16];
+function fmtDist(km){
+  if(km<1) return Math.round(km*1000)+" m";
+  if(km<100) return km.toFixed(1)+" km";
+  return Math.round(km)+" km";
+}
+
+/* ---- tilstand ---- */
+let userLat=null, userLon=null, accuracy=null;
+let heading=null;                 // kompasretning (0=nord, med uret), null = intet kompas
+let computed=[];                  // {bearing, dist} pr. by
+let rafPending=false;
+
+/* ---- DOM ---- */
+const startBtn=document.getElementById("startBtn");
+const stage=document.getElementById("stage");
+const cardsEl=document.getElementById("cards");
+const dial=document.getElementById("dial");
+const facingTag=document.getElementById("facingTag");
+const modeLine=document.getElementById("modeLine");
+const coordsEl=document.getElementById("coords");
+const accEl=document.getElementById("acc");
+const calibEl=document.getElementById("calib");
+const msgEl=document.getElementById("message");
+const refreshBtn=document.getElementById("refreshBtn");
+
+function showMsg(text,isErr){
+  msgEl.textContent=text;
+  msgEl.className="msg"+(isErr?" err":"");
+}
+function hideMsg(){ msgEl.className="msg hidden"; }
+
+/* ---- aktivér (kræver bruger-tap pga. iOS-tilladelser) ---- */
+startBtn.addEventListener("click", async ()=>{
+  hideMsg();
+  startBtn.textContent="Henter position…";
+  await enableCompass();
+  getPosition();
+});
+refreshBtn.addEventListener("click", getPosition);
+
+async function enableCompass(){
+  // iOS 13+ kræver eksplicit tilladelse via bruger-gesture
+  if(typeof DeviceOrientationEvent!=="undefined" &&
+     typeof DeviceOrientationEvent.requestPermission==="function"){
+    try{
+      const res=await DeviceOrientationEvent.requestPermission();
+      if(res==="granted") window.addEventListener("deviceorientation",onOrient,true);
+    }catch(e){ /* intet kompas — vi kører videre i "Nord op"-tilstand */ }
+  }else{
+    window.addEventListener("deviceorientationabsolute",onOrient,true);
+    window.addEventListener("deviceorientation",onOrient,true);
+  }
+}
+
+function onOrient(e){
+  let h=null;
+  if(typeof e.webkitCompassHeading==="number" && !isNaN(e.webkitCompassHeading)){
+    h=e.webkitCompassHeading;                 // iOS: retvisende nord, med uret
+  }else if(e.alpha!=null){
+    h=(360-e.alpha)%360;                       // Android/øvrige
+  }
+  if(h!=null){ heading=h; scheduleRender(); }
+}
+
+function getPosition(){
+  if(!("geolocation" in navigator)){
+    showMsg("Din browser understøtter ikke placering.",true);
+    startBtn.classList.remove("hidden");
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      userLat=pos.coords.latitude;
+      userLon=pos.coords.longitude;
+      accuracy=pos.coords.accuracy;
+      compute();
+      startBtn.classList.add("hidden");
+      stage.classList.remove("hidden");
+      hideMsg();
+      scheduleRender();
+    },
+    err=>{
+      let t="Kunne ikke hente din position.";
+      if(err.code===1) t="Adgang til placering blev afvist. Tillad placering i browseren og prøv igen.";
+      else if(err.code===2) t="Positionen er ikke tilgængelig lige nu. Prøv igen udenfor eller med wifi tændt.";
+      else if(err.code===3) t="Det tog for lang tid at finde din position. Prøv igen.";
+      showMsg(t,true);
+      startBtn.classList.remove("hidden");
+      startBtn.textContent="Prøv igen";
+    },
+    { enableHighAccuracy:true, timeout:15000, maximumAge:0 }
+  );
+}
+
+function compute(){
+  computed = TARGETS.map(t=>({
+    ...t,
+    bearing: bearing(userLat,userLon,t.lat,t.lon),
+    dist: distanceKm(userLat,userLon,t.lat,t.lon)
+  }));
+}
+
+/* ---- rendering ---- */
+function scheduleRender(){
+  if(rafPending) return;
+  rafPending=true;
+  requestAnimationFrame(()=>{ rafPending=false; render(); });
+}
+
+function polar(cx,cy,r,angleDeg){
+  const a=rad(angleDeg);
+  return [cx+r*Math.sin(a), cy-r*Math.cos(a)];
+}
+
+function render(){
+  if(userLat==null) return;
+  const hasCompass = heading!=null;
+  const h = hasCompass ? heading : 0;   // "Nord op" hvis intet kompas
+
+  facingTag.textContent = hasCompass ? "Du kigger her ↑" : "Nord";
+  modeLine.innerHTML = hasCompass
+    ? 'Kompas aktivt · <b>toppen = den vej du vender</b>'
+    : 'Intet kompas · <b>toppen = nord</b> (drej selv efter graderne)';
+
+  drawDial(h, hasCompass);
+  drawCards(h, hasCompass);
+
+  coordsEl.textContent = userLat.toFixed(5)+"°N, "+userLon.toFixed(5)+"°Ø";
+  accEl.textContent = accuracy!=null ? "Nøjagtighed ± "+Math.round(accuracy)+" m · " : "";
+  calibEl.textContent = hasCompass
+    ? "Hold telefonen vandret. Tegn et 8-tal i luften hvis kompasset driver."
+    : "Aktivér kompas ved at tillade bevægelse/retning.";
+}
+
+const CX=160, CY=160, R=140;
+
+function drawDial(h, hasCompass){
+  let s="";
+  // ydre ring
+  s+=`<circle cx="${CX}" cy="${CY}" r="${R}" fill="#0a1120" stroke="var(--panel-line)" stroke-width="1.5"/>`;
+  s+=`<circle cx="${CX}" cy="${CY}" r="${R-26}" fill="none" stroke="var(--grid)" stroke-width="1" opacity="0.5"/>`;
+
+  // grad-tikker hver 15° ; store ved hver 45°
+  for(let d=0; d<360; d+=15){
+    const ang=(d - h + 360)%360;
+    const major = d%45===0;
+    const [x1,y1]=polar(CX,CY,R-2, ang);
+    const [x2,y2]=polar(CX,CY,R-(major?16:9), ang);
+    s+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${major?'#54periods':'#3a4considerd'}" stroke-width="${major?1.4:1}" stroke="${major?'#5a6685':'#33405f'}"/>`;
+  }
+  // verdenshjørner
+  const card=[["N",0],["Ø",90],["S",180],["V",270]];
+  for(const [lab,d] of card){
+    const ang=(d - h + 360)%360;
+    const [x,y]=polar(CX,CY,R-34, ang);
+    const isN = lab==="N";
+    s+=`<text x="${x.toFixed(1)}" y="${(y+5).toFixed(1)}" text-anchor="middle" font-family="Georgia,serif" font-size="16" fill="${isN?'#eef2fa':'#8b93a7'}" font-weight="${isN?'700':'400'}">${lab}</text>`;
+  }
+  // midterpunkt
+  s+=`<circle cx="${CX}" cy="${CY}" r="4" fill="#8b93a7"/>`;
+
+  // "du kigger her" markør i toppen (fast pil op) når kompas aktivt
+  if(hasCompass){
+    s+=`<path d="M ${CX} ${CY-R+4} l -7 14 l 7 -4 l 7 4 z" fill="#eef2fa" opacity="0.9"/>`;
+  }
+
+  // nåle mod hver by
+  for(const t of computed){
+    const ang=(t.bearing - h + 360)%360;
+    const [tx,ty]=polar(CX,CY,R-40, ang);
+    const [bx,by]=polar(CX,CY,14, (ang+180)%360);
+    // linje fra bagkant til spids
+    s+=`<line x1="${bx.toFixed(1)}" y1="${by.toFixed(1)}" x2="${tx.toFixed(1)}" y2="${ty.toFixed(1)}" stroke="${t.hex}" stroke-width="3" stroke-linecap="round" opacity="0.9"/>`;
+    // spids
+    const [hx,hy]=polar(CX,CY,R-24, ang);
+    const [lx,ly]=polar(CX,CY,R-44, (ang-6+360)%360);
+    const [rx,ry]=polar(CX,CY,R-44, (ang+6)%360);
+    s+=`<path d="M ${hx.toFixed(1)} ${hy.toFixed(1)} L ${lx.toFixed(1)} ${ly.toFixed(1)} L ${rx.toFixed(1)} ${ry.toFixed(1)} z" fill="${t.hex}"/>`;
+    // by-prik ved spids
+    s+=`<circle cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="3.5" fill="${t.hex}"/>`;
+  }
+  dial.innerHTML=s;
+}
+
+function drawCards(h, hasCompass){
+  let s="";
+  for(const t of computed){
+    const b=t.bearing;
+    let turnHtml="";
+    if(hasCompass){
+      let rel=(b - h + 360)%360;
+      if(rel<3 || rel>357){
+        turnHtml=`<div class="turn"><div class="lbl">retning</div><div class="val aligned">Ligeud ↑</div></div>`;
+      }else if(rel<=180){
+        turnHtml=`<div class="turn"><div class="lbl">drej</div><div class="val right" style="color:${t.hex}">${Math.round(rel)}° højre →</div></div>`;
+      }else{
+        turnHtml=`<div class="turn"><div class="lbl">drej</div><div class="val right" style="color:${t.hex}">← ${Math.round(360-rel)}° venstre</div></div>`;
+      }
+    }
+    s+=`
+      <div class="card" style="--accent:${t.hex}">
+        <div class="city">
+          <span class="name"><span class="dot" style="background:${t.hex}"></span>${t.name}</span>
+          <span class="dist">${fmtDist(t.dist)} væk</span>
+        </div>
+        <div class="readout">
+          <div>
+            <span class="bearing" style="color:${t.hex}">${Math.round(b)}<span class="deg">°</span></span>
+            <div class="compasspt">${compassPoint(b)} · retvisende</div>
+          </div>
+          ${turnHtml}
+        </div>
+      </div>`;
+  }
+  cardsEl.innerHTML=s;
+}
+
+/* ---- stjernebaggrund ---- */
+(function stars(){
+  const c=document.getElementById("stars"), x=c.getContext("2d");
+  function draw(){
+    const w=c.width=innerWidth, h=c.height=innerHeight;
+    x.clearRect(0,0,w,h);
+    const n=Math.round(w*h/9000);
+    for(let i=0;i<n;i++){
+      const r=Math.random()*1.2+0.2;
+      x.globalAlpha=Math.random()*0.6+0.15;
+      x.fillStyle="#cdd8f0";
+      x.beginPath();
+      x.arc(Math.random()*w,Math.random()*h,r,0,7);
+      x.fill();
+    }
+  }
+  draw();
+  addEventListener("resize",draw);
+})();
+</script>
+</body>
+</html>
